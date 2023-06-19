@@ -5,6 +5,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "builtin_interfaces/msg/time.hpp"
 
 using namespace std::chrono_literals;
 using namespace std;
@@ -22,8 +23,10 @@ class RuntimeClock : public rclcpp::Node
       get_parameter("hz", hz_);
       get_parameter("robot_name", robot_name_);
 
+      step_time_ = 1/hz_*1000ms;
+
       publisher_ = this->create_publisher<std_msgs::msg::String>("clock", 10);
-      timer_ = this->create_wall_timer( 1/hz_*1000ms, std::bind(&RuntimeClock::timer_callback, this));
+      timer_ = this->create_wall_timer(step_time_, bind(&RuntimeClock::timer_callback, this));
     }
 
 
@@ -34,7 +37,9 @@ class RuntimeClock : public rclcpp::Node
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
 
     double hz_;
-    std::string robot_name_;
+    chrono::duration<double, ratio<1, 1000>> step_time_;
+
+    string robot_name_;
 };
 
 int main(int argc, char * argv[])
@@ -48,7 +53,7 @@ int main(int argc, char * argv[])
 void RuntimeClock::timer_callback()
 {
   auto message = std_msgs::msg::String();
-  message.data = "Hello, world! " + robot_name_ + std::to_string(hz_);
+  message.data = "Hello, world! " + robot_name_ + to_string(step_time_.count());
   RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
   publisher_->publish(message);
 }
