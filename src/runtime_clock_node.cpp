@@ -4,11 +4,9 @@
 #include <string>
 
 #include "rclcpp/rclcpp.hpp"
-#include "std_msgs/msg/string.hpp"
 #include "builtin_interfaces/msg/time.hpp"
 
 using namespace std::chrono_literals;
-using namespace std;
 
 class RuntimeClock : public rclcpp::Node
 {
@@ -23,10 +21,10 @@ class RuntimeClock : public rclcpp::Node
       get_parameter("hz", hz_);
       get_parameter("robot_name", robot_name_);
 
-      step_time_ = 1/hz_*1000ms;
+      publisher_ = this->create_publisher<builtin_interfaces::msg::Time>(robot_name_ + "/clock", 10);
+      timer_ = this->create_wall_timer(1s/hz_, bind(&RuntimeClock::timer_callback, this));
 
-      publisher_ = this->create_publisher<std_msgs::msg::String>("clock", 10);
-      timer_ = this->create_wall_timer(step_time_, bind(&RuntimeClock::timer_callback, this));
+      start_time_ = std::chrono::high_resolution_clock::now();
     }
 
 
@@ -34,12 +32,14 @@ class RuntimeClock : public rclcpp::Node
     void timer_callback();
 
     rclcpp::TimerBase::SharedPtr timer_;
-    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    rclcpp::Publisher<builtin_interfaces::msg::Time>::SharedPtr publisher_;
 
     double hz_;
-    chrono::duration<double, ratio<1, 1000>> step_time_;
+    std::string robot_name_;
 
-    string robot_name_;
+    std::chrono::time_point<std::chrono::high_resolution_clock> start_time_;
+    int32_t sec_;
+    uint32_t nanosec_;
 };
 
 int main(int argc, char * argv[])
@@ -52,8 +52,17 @@ int main(int argc, char * argv[])
 
 void RuntimeClock::timer_callback()
 {
-  auto message = std_msgs::msg::String();
-  message.data = "Hello, world! " + robot_name_ + to_string(step_time_.count());
-  RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
+  std::chrono::duration<double> step = std::chrono::high_resolution_clock::now() - start_time_;
+
+  // Cast the step duration to seconds (int32_t) and nanoseconds (uint32_t)
+  sec_ = static_cast<int32_t>(step.count());
+  nanosec_ = static_cast<uint32_t>(
+    std::chrono::duration_cast<std::chrono::nanoseconds>(step - std::chrono::seconds(sec_)).count()
+  );
+
+  auto message = builtin_interfaces::msg::Time();
+  message.sec = sec_;
+  message.nanosec = nanosec_;
+  RCLCPP_INFO(this->get_logger(), "Publishing: %d %d", message.sec, message.nanosec);
   publisher_->publish(message);
 }
