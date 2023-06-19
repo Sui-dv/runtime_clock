@@ -12,17 +12,18 @@ using namespace std;
 class RuntimeClock : public rclcpp::Node
 {
   public:
-    RuntimeClock() : Node("runtime_clock"), count_(0)
+    RuntimeClock() : Node("runtime_clock")
     {
-      publisher_ = this->create_publisher<std_msgs::msg::String>("clock", 10);
-      timer_ = this->create_wall_timer(
-      500ms, std::bind(&RuntimeClock::timer_callback, this));
-
       // Param init
-      declare_parameter("robot_name", "Lasagna"); // defaults to "Lasagna"
+      declare_parameter("robot_name", "Lasagna");   // defaults to "Lasagna"
+      declare_parameter("hz", 1.0f);                // 1.0f -> float type
 
       // Param load
+      get_parameter("hz", hz_);
       get_parameter("robot_name", robot_name_);
+
+      publisher_ = this->create_publisher<std_msgs::msg::String>("clock", 10);
+      timer_ = this->create_wall_timer( 1/hz_*1000ms, std::bind(&RuntimeClock::timer_callback, this));
     }
 
 
@@ -31,7 +32,8 @@ class RuntimeClock : public rclcpp::Node
 
     rclcpp::TimerBase::SharedPtr timer_;
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
-    size_t count_;
+
+    double hz_;
     std::string robot_name_;
 };
 
@@ -46,7 +48,7 @@ int main(int argc, char * argv[])
 void RuntimeClock::timer_callback()
 {
   auto message = std_msgs::msg::String();
-  message.data = "Hello, world! " + robot_name_ + std::to_string(count_++);
+  message.data = "Hello, world! " + robot_name_ + std::to_string(hz_);
   RCLCPP_INFO(this->get_logger(), "Publishing: '%s'", message.data.c_str());
   publisher_->publish(message);
 }
