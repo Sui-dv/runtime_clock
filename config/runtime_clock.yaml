@@ -1,0 +1,3 @@
+/runtime_clock:
+  ros__parameters:
+    robot_name: "mars_rover"
