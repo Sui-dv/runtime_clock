@@ -1,4 +1,4 @@
 /runtime_clock:
   ros__parameters:
-    robot_name: "mars_rover"
-    hz: 0.8
+    frame_id: "mars_rover"
+    hz: 2.0
